@@ -28,6 +28,7 @@ class DenosingConfig:
     def __init__(self, test_cfg):
         # 配置文件
         self.patch_size = test_cfg.get('patch_size')
+        self.stride = test_cfg.get('stride')
 
     def __repr__(self) -> str:
         return str(self.__dict__)
@@ -120,16 +121,37 @@ class DenosingPredictor:
         return [out.host for out in outputs]
 
     def predict(self, input):
-        output  = self._forward(input)
+        patch_size = self.test_cfg.patch_size
+        stride = self.test_cfg.stride
+        _shape = input.shape
+        output = np.zeros(_shape)
+        counter = np.zeros(_shape)
+        # 将图片切块进行测试
+        start_index_x = 0
+        while start_index_x < _shape[0]:
+            start_index_y = 0
+            while start_index_y < _shape[1]:
+                temp_patch = np.zeros(patch_size)
+                end_index_x = start_index_x + patch_size[0]
+                end_index_y = start_index_y + patch_size[1]
+                input_patch = input[start_index_x:end_index_x, start_index_y:end_index_y]
+                temp_patch[:input_patch.shape[0],:input_patch.shape[1]] = input_patch 
+                counter[start_index_x:end_index_x, start_index_y:end_index_y] += 1  
+                pred = self._forward(temp_patch)
+                temp_size = output[start_index_x:end_index_x, start_index_y:end_index_y].shape
+                output[start_index_x:end_index_x, start_index_y:end_index_y] += pred[:temp_size[0],:temp_size[1]]
+                start_index_y += stride[1]
+            start_index_x += stride[0]
+        # import matplotlib.pyplot as plt
+        # plt.imshow(counter)
+        # plt.show()
+        output = output / counter
         return output
 
-    def _forward(self, inputs):
-        inputs_th = [torch.from_numpy(input).unsqueeze(0).to(self.device) for input in inputs]
+    def _forward(self, img):
+        img_t = torch.from_numpy(img)[None,None].to(self.device)
         # pytorch预测
         with torch.no_grad():
-            output = self.net(inputs_th)
+            output = self.net(img_t.float())
             output = output.squeeze().cpu().detach().numpy()
         return output
-
-
-    

@@ -8,7 +8,7 @@ from torch.autograd import Variable as V
 from torch.utils.data import DataLoader
 import time
 from custom.utils.common_tools import *
-from torch.utils.tensorboard import SummaryWriter
+from tensorboardX import SummaryWriter
 
 # os.environ['CUDA_VISIBLE_DEVICES'] = network_cfg.gpus
 logger_dir = network_cfg.log_dir
@@ -49,15 +49,12 @@ def train():
     time_start=time.time()
     for epoch in range(network_cfg.total_epochs): 
         #Training Step!
-        for ii, (random_sample_img, sensemap, random_sample_mask, full_sampling_img, full_sampling_kspace) in enumerate(train_dataloader):
-            random_sample_img = V(random_sample_img).cuda()
-            sensemap = V(sensemap).cuda()
-            random_sample_mask = V(random_sample_mask).cuda()
-            full_sampling_img = V(full_sampling_img).cuda()
-            full_sampling_kspace = V(full_sampling_kspace).cuda()
+        for ii, (src_img, tgt_img) in enumerate(train_dataloader):
+            src_img = V(src_img).cuda()
+            tgt_img = V(tgt_img).cuda()
             optimizer.zero_grad()
-            t_out = net([random_sample_img, sensemap, random_sample_mask, full_sampling_kspace])
-            t_loss = train_loss_f(t_out, full_sampling_img)
+            t_out = net(src_img)
+            t_loss = train_loss_f(t_out, tgt_img)
             loss_all = V(torch.zeros(1)).cuda()
             loss_info = ""
             for loss_item, loss_val in t_loss.items():
@@ -79,15 +76,12 @@ def train():
         # Valid Step!
         if (epoch+1) % network_cfg.valid_interval == 0:
             valid_loss = dict()
-            for ii, (random_sample_img, sensemap, random_sample_mask, full_sampling_img, full_sampling_kspace) in enumerate(valid_dataloader):
-                random_sample_img = V(random_sample_img).cuda()
-                sensemap = V(sensemap).cuda()
-                random_sample_mask = V(random_sample_mask).cuda()
-                full_sampling_img = V(full_sampling_img).cuda()
-                full_sampling_kspace = V(full_sampling_kspace).cuda()
+            for ii, (src_img, tgt_img) in enumerate(valid_dataloader):
+                src_img = V(src_img).cuda()
+                tgt_img = V(tgt_img).cuda()
                 with torch.no_grad():
-                    v_out = net([random_sample_img, sensemap, random_sample_mask, full_sampling_kspace])
-                    v_loss = valid_loss_f(v_out, full_sampling_img)
+                    v_out = net(src_img)
+                    v_loss = valid_loss_f(v_out, tgt_img)
                 loss_all = V(torch.zeros(1)).cuda()
                 for loss_item, loss_val in v_loss.items():
                     if loss_item not in valid_loss:
@@ -105,7 +99,7 @@ def train():
         os.makedirs(network_cfg.checkpoints_dir,exist_ok=True)
         if (epoch+1) % network_cfg.checkpoint_save_interval == 0:
             torch.save(net.state_dict(), network_cfg.checkpoints_dir+"/{}.pth".format(epoch+1))
-
+    writer.close()
 
 if __name__ == '__main__':
 	train()

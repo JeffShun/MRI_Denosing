@@ -2,9 +2,9 @@ import argparse
 import glob
 import os
 import sys
-import h5py
 import numpy as np
 from tqdm import tqdm
+import SimpleITK as sitk
 from PIL import Image, ImageDraw, ImageFont
 from skimage.metrics import structural_similarity
 
@@ -16,13 +16,13 @@ def parse_args():
 
     parser.add_argument('--device', default="cuda:0", type=str)
     parser.add_argument('--input_path', default='../example/data/input/test', type=str)
-    parser.add_argument('--output_path', default='../example/data/output/MW-ResUnet', type=str)
+    parser.add_argument('--output_path', default='../example/data/output/ResUnet', type=str)
 
     parser.add_argument(
         '--model_file',
         type=str,
         # default='../train/checkpoints/trt_model/model.engine'
-        default='../train/checkpoints/MW-ResUnet/60.pth'
+        default='../train/checkpoints/ResUnet/10.pth'
     )
     parser.add_argument(
         '--config_file',
@@ -37,14 +37,15 @@ def inference(predictor: DenosingPredictor, img: np.ndarray):
     pred_array = predictor.predict(img)
     return pred_array
 
-def save_img(img, save_path):
-    input_sos, label, pred_img = img
-    ssim = structural_similarity(label, pred_img, data_range=label.max())
-    input_sos = (input_sos-input_sos.min())/(input_sos.max()-input_sos.min())*255
-    label = (label-label.min())/(label.max()-label.min())*255
+
+def save_img(imgs, save_path):
+    noise_img, clean_img, pred_img = imgs
+    ssim = structural_similarity(clean_img, pred_img, data_range=clean_img.max())
+    noise_img = (noise_img-noise_img.min())/(noise_img.max()-noise_img.min())*255
+    clean_img = (clean_img-clean_img.min())/(clean_img.max()-clean_img.min())*255
     pred_img = (pred_img-pred_img.min())/(pred_img.max()-pred_img.min())*255
-    diff_img = np.abs(pred_img - label)**2
-    save_img = np.concatenate((input_sos, label, pred_img, diff_img),1)
+    diff_img = np.abs(pred_img - clean_img)**2
+    save_img = np.concatenate((noise_img, clean_img, pred_img, diff_img),1)
     save_img = Image.fromarray(save_img.astype(np.uint8))
     draw = ImageDraw.Draw(save_img)
     font = ImageFont.truetype("arial.ttf", size=25)
@@ -67,22 +68,24 @@ def main(input_path, output_path, device, args):
     )
 
     os.makedirs(output_path, exist_ok=True)
-    for f_name in tqdm(os.listdir(input_path)):
-        # if f_name != "1000267_22.h5":
+
+    for pid in tqdm(os.listdir(input_path)):
+        # if f_name != "1000267_22":
         #     continue
-        f_path = os.path.join(input_path, f_name)
-        with h5py.File(f_path, 'r') as f:
-            noise_img = f['noise_img'][:]        
-            clean_img = f['clean_img'][:]        
+        imgs_dir = os.path.join(input_path, pid)
+        noise_imgs = [img for img in os.listdir(imgs_dir) if "Temp_" in img]
+        for img in noise_imgs:
+            noise_img = sitk.GetArrayFromImage(sitk.ReadImage(os.path.join(imgs_dir, img)))[0]
+            clean_img = sitk.GetArrayFromImage(sitk.ReadImage(os.path.join(imgs_dir, img).replace("Temp_","")))[0]
+            noise_img = (noise_img-noise_img.min())/(noise_img.max()-noise_img.min())
+            clean_img = (clean_img-clean_img.min())/(clean_img.max()-clean_img.min())
+            pred_array = inference(predictor_denosing, noise_img)
+            save_img([noise_img, clean_img, pred_array], os.path.join(output_path, f'{img.replace("Temp_","")}.png'))
+            meta_data_dir = os.path.join(output_path, "meta_datas", img.replace("Temp_",""))
+            os.makedirs(meta_data_dir, exist_ok=True)
+            np.save(meta_data_dir + "/pred.npy", pred_array)
+            np.save(meta_data_dir + "/label.npy", clean_img)
 
-        pid = f_name.replace(".h5", "")
-        pred_array = inference(predictor_denosing, noise_img)
-        save_img([noise_img, clean_img, pred_array], os.path.join(output_path, f'{pid}.png'))
-
-        meta_data_dir = os.path.join(output_path, "meta_datas", pid)
-        os.makedirs(meta_data_dir, exist_ok=True)
-        np.save(meta_data_dir + "/pred.npy", pred_array)
-        np.save(meta_data_dir + "/label.npy", clean_img)
 
 if __name__ == '__main__':
     args = parse_args()

@@ -2,7 +2,6 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from custom.utils.mri_tools import *
 
 class LossCompose(object):
 
@@ -73,9 +72,6 @@ class SSIMLoss(nn.Module):
         self.cov_norm = NP / (NP - 1)
 
     def forward(self, X: torch.Tensor, Y: torch.Tensor):
-        if len(X.shape)==3:
-            X = X.unsqueeze(1)
-        Y = torch.abs(Y).unsqueeze(1)
         assert isinstance(self.w, torch.Tensor)
         B, C, W, D = Y.shape
         max_values, _ = torch.max(Y.view(B, C, -1), -1)
@@ -111,9 +107,6 @@ class MSELoss(nn.Module):
         self.reduce = reduce
 
     def forward(self, X: torch.Tensor, Y: torch.Tensor):
-        if len(X.shape)==3:
-            X = X.unsqueeze(1)
-        Y = torch.abs(Y).unsqueeze(1)
         loss = ((X-Y)**2)
         if self.reduce:
             return loss.mean()

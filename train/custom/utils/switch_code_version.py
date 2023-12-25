@@ -1,6 +1,5 @@
 import tarfile
 import argparse
-import glob
 import os
 import pathlib
 import sys
@@ -12,8 +11,6 @@ def parse_args():
     parser.add_argument('--tar_version', type=str, default='MWResUnet-PM-LSW')
     args = parser.parse_args()
     return args
-
-
 
 if __name__ == '__main__':
     args = parse_args()

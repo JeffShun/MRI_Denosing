@@ -1,22 +1,16 @@
 """data loader."""
 
-import random
 import numpy as np
 from torch.utils import data
-from skimage.morphology import erosion, dilation
 from custom.utils.common_tools import *
 
 class MyDataset(data.Dataset):
     def __init__(
             self,
             dst_list_file,
-            constant_shift,
-            shift_range,
             transforms
     ):
         self.data_lst = self._load_files(dst_list_file)
-        self._constant_shift = constant_shift
-        self._shift_range = shift_range
         self._transforms = transforms
 
     def _load_files(self, file):
@@ -35,25 +29,26 @@ class MyDataset(data.Dataset):
 
     def _load_source_data(self, file_name):
         data = np.load(file_name, allow_pickle=True)
-        noise_img = data['noise_img']
-        clean_img = data['clean_img']
+        src_img = data['src']
+        tgt_img = data['tgt']
 
-        # transform前，数据必须转化为[C,H,D,W]的形状
-        noise_img = noise_img[np.newaxis,:,:,:]
-        clean_img = clean_img[np.newaxis,:,:,:]
+        # transform前，数据必须转化为[C,H,W]的形状
+        src_img = src_img[np.newaxis,:,:].astype(np.float32)
+        tgt_img = tgt_img[np.newaxis,:,:].astype(np.float32)
 
         if self._transforms:
-            img, mask = self._transforms(noise_img, clean_img)
-            
-        return img, mask
+            src_img, tgt_img = self._transforms(src_img, tgt_img)
+    
+        # import matplotlib.pyplot as plt
+        # src_arr = src_img.squeeze().numpy()
+        # tgt_arr = tgt_img.squeeze().numpy()
+        # plt.figure()
+        # plt.subplot(121)
+        # plt.imshow(src_arr)
+        # plt.subplot(122)
+        # plt.imshow(tgt_arr)
+        # plt.show()
+
+        return src_img, tgt_img
 
 
-    def crop_data(self, img, mask):
-        shape = img.shape
-        loc = np.where(img!=0)
-        zmin, zmax, ymin, ymax, xmin, xmax = np.min(loc[0]), np.max(loc[0]), np.min(loc[1]), np.max(loc[1]), np.min(loc[2]), np.max(loc[2])
-        zmin, ymin, xmin = [max(0, v - self._constant_shift + random.randint(-self._shift_range, self._shift_range)) for v in[zmin, ymin, xmin]]
-        zmax, ymax, xmax = [min(sc, v + self._constant_shift + random.randint(-self._shift_range, self._shift_range)) for v, sc in zip([zmax, ymax, xmax], shape)]
-        img_patch =  img[zmin: zmax, ymin: ymax, xmin: xmax]
-        mask_patch = mask[zmin: zmax, ymin: ymax, xmin: xmax]
-        return img_patch, mask_patch

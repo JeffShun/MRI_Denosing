@@ -1,2 +1,3 @@
-patch_size: [320, 320]
+patch_size: [384, 384]
+stride: [384, 384]
 
