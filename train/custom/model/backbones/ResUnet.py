@@ -80,9 +80,10 @@ class DoubleConv(nn.Module):
 
 class ResUnet(nn.Module):
 
-    def __init__(self, in_ch, channels=32, blocks=2):
+    def __init__(self, in_ch, channels=32, blocks=2, global_residual=True):
         super(ResUnet, self).__init__()
 
+        self.global_residual = global_residual
         self.layer1 = make_res_layer(in_ch, channels * 2, blocks, stride=1)
         self.layer2 = make_res_layer(channels * 2, channels * 4, blocks, stride=2)
         self.layer3 = make_res_layer(channels * 4, channels * 8, blocks, stride=2)
@@ -98,8 +99,8 @@ class ResUnet(nn.Module):
         self.up2 = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=False)
         self.mconv1 = DoubleConv(channels * 6, channels)
         
-    def forward(self, input):
-        c1 = self.layer1(input)
+    def forward(self, x):
+        c1 = self.layer1(x)
         c2 = self.layer2(c1)
         c3 = self.layer3(c2)
         c4 = self.layer4(c3)
@@ -108,9 +109,11 @@ class ResUnet(nn.Module):
         merge4 = self.mconv4(torch.cat([self.up5(c5), c4], dim=1))
         merge3 = self.mconv3(torch.cat([self.up4(merge4), c3], dim=1))
         merge2 = self.mconv2(torch.cat([self.up3(merge3), c2], dim=1))
-        merge1 = self.mconv1(torch.cat([self.up2(merge2), c1], dim=1))
+        out = self.mconv1(torch.cat([self.up2(merge2), c1], dim=1))
 
-        return merge1
+        if self.global_residual:
+            out = torch.sub(x, out)
+        return out
 
 
 

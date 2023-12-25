@@ -16,13 +16,13 @@ def parse_args():
 
     parser.add_argument('--device', default="cuda:0", type=str)
     parser.add_argument('--input_path', default='../example/data/input/test', type=str)
-    parser.add_argument('--output_path', default='../example/data/output/ResUnet', type=str)
+    parser.add_argument('--output_path', default='../example/data/output/ResUnet-NoPatch', type=str)
 
     parser.add_argument(
         '--model_file',
         type=str,
         # default='../train/checkpoints/trt_model/model.engine'
-        default='../train/checkpoints/ResUnet/10.pth'
+        default='../train/checkpoints/ResUnet-NoPatch/28.pth'
     )
     parser.add_argument(
         '--config_file',
@@ -50,7 +50,8 @@ def save_img(imgs, save_path):
     draw = ImageDraw.Draw(save_img)
     font = ImageFont.truetype("arial.ttf", size=25)
     title = "SSIM: %.4f"%(ssim)
-    draw.text((800, 285), title, fill=(255), font=font,stroke_fill='red')
+    w, h = save_img.size
+    draw.text((int(w*0.75-160), int(h*0.89)), title, fill=(255), font=font,stroke_fill='red')
     # save_path_part = save_path.split("\\")
     # save_path = save_path_part[0] + "/" + "{:.4f}".format(ssim) + "_" + save_path_part[1]
     save_img.save(save_path)

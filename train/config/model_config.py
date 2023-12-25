@@ -10,7 +10,7 @@ from custom.model.model_loss import *
 
 class network_cfg:
     # img
-    patch_size = (160, 160)
+    patch_size = (320, 320)
     # network
     network = Model_Network(
         backbone = ResUnet(
@@ -46,7 +46,7 @@ class network_cfg:
             random_flip(axis=1, prob=0.5),
             random_flip(axis=2, prob=0.5),
             random_rotate90(k=1, prob=0.5),
-            random_crop(patch_size),
+            random_center_crop(crop_size=(256,256), shift_range=(30,30), prob=0.5),
             resize(patch_size),
             ])
         )
@@ -55,7 +55,6 @@ class network_cfg:
         transforms = TransformCompose([
             to_tensor(),
             normlize(win_clip=None),
-            random_crop(patch_size),
             resize(patch_size),
             ])
         )
@@ -80,8 +79,8 @@ class network_cfg:
 
     # debug
     valid_interval = 1
-    log_dir = work_dir + "/Logs/ResUnet"
-    checkpoints_dir = work_dir + '/checkpoints/ResUnet'
+    log_dir = work_dir + "/Logs/ResUnet-NoPatch"
+    checkpoints_dir = work_dir + '/checkpoints/ResUnet-NoPatch'
     checkpoint_save_interval = 1
     total_epochs = 200
     load_from = work_dir + '/checkpoints/None/50.pth'

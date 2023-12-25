@@ -62,16 +62,22 @@ class random_rotate90(object):
             label_o = torch.rot90(label, self.k, [1, 2])
         return img_o, label_o
 
-class random_crop(object):
-    def __init__(self, crop_size):
+class random_center_crop(object):
+    def __init__(self, crop_size, shift_range, prob=0.5):
         self.crop_size = crop_size
+        self.shift_range = shift_range
+        self.prob = prob
 
     def __call__(self, img, label):
+        img_o, label_o = img, label
         d, w = img.shape[1:]
-        crop_x_start = random.randint(0, max(0, d - self.crop_size[0]))
-        crop_y_start = random.randint(0, max(0, w - self.crop_size[1]))
-        img_o = img[:, crop_x_start:crop_x_start+self.crop_size[0], crop_y_start:crop_y_start+self.crop_size[1]]
-        label_o = label[:, crop_x_start:crop_x_start+self.crop_size[0], crop_y_start:crop_y_start+self.crop_size[1]]            
+        if d <= self.crop_size[0] or w <= self.crop_size[1]:
+            return img_o, label_o
+        if random.random() < self.prob:
+            crop_x_start = min(max(0, (d - self.crop_size[0])//2-random.randint(-self.shift_range[0], self.shift_range[0])), d-self.crop_size[0])
+            crop_y_start = min(max(0, (w - self.crop_size[1])//2-random.randint(-self.shift_range[1], self.shift_range[1])), w-self.crop_size[1])
+            img_o = img[:, crop_x_start:crop_x_start+self.crop_size[0], crop_y_start:crop_y_start+self.crop_size[1]]
+            label_o = label[:, crop_x_start:crop_x_start+self.crop_size[0], crop_y_start:crop_y_start+self.crop_size[1]]         
         return img_o, label_o
 
 
@@ -82,8 +88,8 @@ class resize(object):
     def __call__(self, img, label):
         if tuple(img.shape[1:]) == tuple(label.shape[1:]) and tuple(img.shape[1:]) == tuple(self.size):
             return img, label
-        img_o = torch.nn.functional.interpolate(img[None], size=self.size, mode="trilinear") 
-        label_o = torch.nn.functional.interpolate(label[None], size=self.size, mode="trilinear")
+        img_o = torch.nn.functional.interpolate(img[None], size=self.size, mode="bilinear") 
+        label_o = torch.nn.functional.interpolate(label[None], size=self.size, mode="bilinear")
         img_o = img_o.squeeze(0)
         label_o = label_o.squeeze(0)
         return img_o, label_o
