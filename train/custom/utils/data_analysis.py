@@ -50,6 +50,32 @@ def test_a_data(data_path):
     plt.show()
     print(data_arr.shape)
 
+
+def data_analysis(data_dir):
+    series_description = dict()
+    matrix_description = dict()
+    for scan in os.listdir(data_dir):
+        data_path = str(data_dir / scan / pathlib.Path(scan+"0000.dcm"))
+        image = pydicom.dcmread(data_path)
+        series = image[('0008'),('103e')].value
+        if series not in series_description:
+            series_description[series] = 1
+        else:
+            series_description[series] += 1
+
+        row = image[('0028'),('0010')].value
+        col = image[('0028'),('0011')].value
+        matrix = (row,col)
+        if matrix not in matrix_description:
+            matrix_description[matrix] = 1
+        else:
+            matrix_description[matrix] += 1
+
+
+    print(series_description)
+    print(matrix_description)
+
+
 if __name__ == "__main__":
     # src_dir = pathlib.Path(r"E:\ShenFile\02 项目数据\CV滤波数据\AI数据\AI数据\膝关节")
     # dst_dir = pathlib.Path(r"E:\ShenFile\02 项目数据\CV滤波数据\clean_data")
@@ -59,4 +85,4 @@ if __name__ == "__main__":
     # dst_dir = pathlib.Path(r"E:\ShenFile\02 项目数据\CV_Data\group_data")    
     # data_parser_and_grouping(src_dir, dst_dir)
 
-    test_a_data(r"E:\ShenFile\02 项目数据\CV_Data\group_data\para2\63413\634130001.dcm")
+    data_analysis(pathlib.Path(r"E:\ShenFile\Code\MRI_Denosing\MRI_Denosing\example\data\input\para4"))

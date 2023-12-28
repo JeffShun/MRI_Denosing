@@ -161,7 +161,7 @@ def get_hfimg2(img):
 
 if __name__ == "__main__":
 
-    data_path = '../example/data/output/Paper-MW-ResUnet-DC4'
+    data_path = '../example/data/output/para2/SwinIR-384'
     
     parser = ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument(

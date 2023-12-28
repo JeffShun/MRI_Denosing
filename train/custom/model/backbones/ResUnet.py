@@ -26,10 +26,10 @@ class BasicBlock(nn.Module):
         # Both self.conv1 and self.downsample layers downsample the input when stride != 1
         self.conv_block = nn.Sequential(
             conv3x3(inplanes, planes, stride),
-            nn.InstanceNorm2d(planes),
+            nn.BatchNorm2d(planes),
             nn.LeakyReLU(negative_slope=0.2, inplace=True),
             conv3x3(planes, planes),
-            nn.InstanceNorm2d(planes)
+            nn.BatchNorm2d(planes)
         )
         self.bypass = bypass
         self.activate = nn.LeakyReLU(negative_slope=0.2, inplace=True)
@@ -51,7 +51,7 @@ class BasicBlock(nn.Module):
 def make_res_layer(inplanes, planes, blocks, stride=1):
     bypass = nn.Sequential(
         conv1x1(inplanes, planes, stride),
-        nn.InstanceNorm2d(planes),
+        nn.BatchNorm2d(planes),
     )
 
     layers = []
@@ -68,10 +68,10 @@ class DoubleConv(nn.Module):
         super(DoubleConv, self).__init__()
         self.conv = nn.Sequential(
             nn.Conv2d(in_ch, out_ch, kernel_size=kernel_size, stride=stride, padding=int(kernel_size / 2)),
-            nn.InstanceNorm2d(out_ch), 
+            nn.BatchNorm2d(out_ch), 
             nn.LeakyReLU(negative_slope=0.2, inplace=True), 
             nn.Conv2d(out_ch, out_ch, 3, padding=1, dilation=1),
-            nn.InstanceNorm2d(out_ch), 
+            nn.BatchNorm2d(out_ch), 
             nn.LeakyReLU(negative_slope=0.2, inplace=True)
         )
 
@@ -80,24 +80,25 @@ class DoubleConv(nn.Module):
 
 class ResUnet(nn.Module):
 
-    def __init__(self, in_ch, channels=32, blocks=2, global_residual=True):
+    def __init__(self, in_chans, out_chans, num_chans=32, n_res_blocks=2, global_residual=True):
         super(ResUnet, self).__init__()
 
         self.global_residual = global_residual
-        self.layer1 = make_res_layer(in_ch, channels * 2, blocks, stride=1)
-        self.layer2 = make_res_layer(channels * 2, channels * 4, blocks, stride=2)
-        self.layer3 = make_res_layer(channels * 4, channels * 8, blocks, stride=2)
-        self.layer4 = make_res_layer(channels * 8, channels * 16, blocks, stride=2)
-        self.layer5 = make_res_layer(channels * 16, channels * 32, blocks, stride=2)
+        self.layer1 = make_res_layer(in_chans, num_chans, n_res_blocks, stride=1)
+        self.layer2 = make_res_layer(num_chans, num_chans * 2, n_res_blocks, stride=2)
+        self.layer3 = make_res_layer(num_chans * 2, num_chans * 4, n_res_blocks, stride=2)
+        self.layer4 = make_res_layer(num_chans * 4, num_chans * 8, n_res_blocks, stride=2)
+        self.layer5 = make_res_layer(num_chans * 8, num_chans * 16, n_res_blocks, stride=2)
 
         self.up5 = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=False)
-        self.mconv4 = DoubleConv(channels * 48, channels * 16)
+        self.mconv4 = DoubleConv(num_chans * 24, num_chans * 8)
         self.up4 = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=False)
-        self.mconv3 = DoubleConv(channels * 24, channels * 8)
+        self.mconv3 = DoubleConv(num_chans * 12, num_chans * 4)
         self.up3 = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=False)
-        self.mconv2 = DoubleConv(channels * 12, channels * 4)
+        self.mconv2 = DoubleConv(num_chans * 6, num_chans * 2)
         self.up2 = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=False)
-        self.mconv1 = DoubleConv(channels * 6, channels)
+        self.mconv1 = DoubleConv(num_chans * 3, num_chans)
+        self.out_conv = nn.Conv2d(num_chans, out_chans, 1)
         
     def forward(self, x):
         c1 = self.layer1(x)
@@ -109,8 +110,8 @@ class ResUnet(nn.Module):
         merge4 = self.mconv4(torch.cat([self.up5(c5), c4], dim=1))
         merge3 = self.mconv3(torch.cat([self.up4(merge4), c3], dim=1))
         merge2 = self.mconv2(torch.cat([self.up3(merge3), c2], dim=1))
-        out = self.mconv1(torch.cat([self.up2(merge2), c1], dim=1))
-
+        merge1 = self.mconv1(torch.cat([self.up2(merge2), c1], dim=1))
+        out = self.out_conv(merge1)
         if self.global_residual:
             out = torch.sub(x, out)
         return out

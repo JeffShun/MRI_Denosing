@@ -12,8 +12,8 @@ from multiprocessing import Pool
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--data_path', type=str, default='./train_data/origin_data')
-    parser.add_argument('--save_path', type=str, default='./train_data/processed_data')
+    parser.add_argument('--data_path', type=str, default='./train_data/origin_data_para2')
+    parser.add_argument('--save_path', type=str, default='./train_data/processed_data_para2')
     args = parser.parse_args()
     return args
 
